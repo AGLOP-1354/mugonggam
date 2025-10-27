@@ -6,19 +6,19 @@ import { ExternalLink } from 'lucide-react';
 // 샘플 영상 데이터 - 나중에 실제 유병재님 영상으로 변경 가능
 const SAMPLE_VIDEOS = [
   {
-    id: 'dQw4w9WgXcQ', // 샘플 ID - 실제 영상 ID로 변경 필요
-    title: '무공해 레전드 영상 #1',
-    description: '무조건 공감해주는 유병재님의 명장면'
+    id: 'cqIZU2iQym4?si=N6iJbnOGT6eM7ja8',
+    title: '[무공해] 샤이니 T랑, 아니 키랑.. 무조건 공감합니다',
+    description: '무공해 레전드 영상 #1'
   },
   {
-    id: 'dQw4w9WgXcQ', // 샘플 ID - 실제 영상 ID로 변경 필요
-    title: '무공해 레전드 영상 #2',
-    description: '웃음과 공감이 함께하는 순간'
+    id: 'dcJUPNvpnYI?si=cAwU3JJFKO7jWFUI',
+    title: '[무공해] 해도해도 너무하지만 공감합니다',
+    description: '무공해 레전드 영상 #2'
   },
   {
-    id: 'dQw4w9WgXcQ', // 샘플 ID - 실제 영상 ID로 변경 필요
-    title: '무공해 레전드 영상 #3',
-    description: '유병재님의 대표 공감 콘텐츠'
+    id: 'UcqZ7-UP7qU?si=FaL97S21j54s4APS',
+    title: '[무공해] 왜 그런진 몰라도 공감합니다',
+    description: '무공해 레전드 영상 #3'
   }
 ];
 
@@ -90,7 +90,6 @@ const YouTubeSection = () => {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="text-center mt-8 text-sm text-gray-500 space-y-2"
         >
-          <p>💡 위 영상들은 샘플입니다. 실제 인기 영상으로 업데이트될 예정입니다.</p>
           <p>본 서비스는 팬메이드 프로젝트입니다. 문제가 되는 경우 연락 주시면 즉시 조치하겠습니다.</p>
         </motion.div>
       </div>

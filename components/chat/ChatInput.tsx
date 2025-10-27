@@ -52,7 +52,7 @@ const ChatInput = ({ onSend, disabled, placeholder }: ChatInputProps) => {
           disabled={disabled}
           rows={1}
           className={cn(
-            "flex-1 resize-none px-4 py-3 rounded-full border-2 border-gray-200 focus:border-primary outline-none max-h-32 transition-colors",
+            "flex-1 resize-none px-4 py-3 rounded-full border-2 border-gray-200 focus:border-primary outline-none max-h-32 overflow-hidden transition-colors",
             disabled && "bg-gray-100 text-gray-500 cursor-not-allowed"
           )}
         />
