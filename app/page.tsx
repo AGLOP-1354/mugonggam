@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import Hero from '@/components/landing/Hero';
 import About from '@/components/landing/About';
 import YouTubeSection from '@/components/landing/YouTubeSection';
+import Footer from '@/components/landing/Footer';
 import { useUserStore } from '@/store/userStore';
 
 export default function LandingPage() {
@@ -53,6 +54,8 @@ export default function LandingPage() {
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

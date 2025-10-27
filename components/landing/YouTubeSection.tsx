@@ -88,9 +88,10 @@ const YouTubeSection = () => {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="text-center mt-8 text-sm text-gray-500"
+          className="text-center mt-8 text-sm text-gray-500 space-y-2"
         >
-          💡 위 영상들은 샘플입니다. 실제 인기 영상으로 업데이트될 예정입니다.
+          <p>💡 위 영상들은 샘플입니다. 실제 인기 영상으로 업데이트될 예정입니다.</p>
+          <p>본 서비스는 팬메이드 프로젝트입니다. 문제가 되는 경우 연락 주시면 즉시 조치하겠습니다.</p>
         </motion.div>
       </div>
     </section>
