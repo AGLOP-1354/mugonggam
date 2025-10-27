@@ -167,7 +167,7 @@ export const APP_CONFIG = {
   levels: [
     { level: 1, name: '새싹', requiredExp: 0, unlocks: ['기본 모드', '절친 모드', '엄마 모드'] },
     { level: 2, name: '친구', requiredExp: 10, unlocks: [] },
-    { level: 3, name: '절친', requiredExp: 30, unlocks: ['과몰입 모드'] },
+    { level: 3, name: '절친', requiredExp: 30, unlocks: ['애인 모드'] },
     { level: 4, name: '단짝', requiredExp: 50, unlocks: [] },
     { level: 5, name: '영혼의 동반자', requiredExp: 100, unlocks: ['밈 모드'] }
   ],
@@ -348,7 +348,7 @@ export type EmpathyMode =
   | 'default'      // 기본 모드 (비회원/회원 모두)
   | 'bestie'       // 절친 모드 (회원 전용)
   | 'mom'          // 엄마 모드 (회원 전용)
-  | 'extreme'      // 과몰입 모드 (회원 전용, Lv.3+)
+  | 'extreme'      // 애인 모드 (회원 전용, Lv.3+)
   | 'meme';        // 밈 모드 (회원 전용, Lv.5+)
 
 export interface ChatSession {
