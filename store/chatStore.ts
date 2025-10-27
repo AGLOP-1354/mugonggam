@@ -9,6 +9,7 @@ interface ChatState {
   currentSession: ChatSession | null;
   isLoading: boolean;
   currentMode: EmpathyMode;
+  dbSessionId: string | null; // DB에 저장된 세션 ID
 
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
   setLoading: (loading: boolean) => void;
@@ -16,6 +17,9 @@ interface ChatState {
   clearChat: () => void;
   createNewSession: () => void;
   canUseMode: (mode: EmpathyMode) => boolean;
+  setDbSessionId: (sessionId: string | null) => void;
+  loadSessionFromDB: (session: ChatSession, sessionId: string) => void;
+  setCurrentSession: (session: ChatSession | null) => void;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -27,6 +31,7 @@ export const useChatStore = create<ChatState>()(
         currentSession: null,
         isLoading: false,
         currentMode: 'default',
+        dbSessionId: null,
 
         addMessage: (message) => {
           const newMessage: Message = {
@@ -76,7 +81,9 @@ export const useChatStore = create<ChatState>()(
           return memberUser.unlockedModes.includes(mode);
         },
 
-        clearChat: () => set({ currentSession: null }),
+        clearChat: () => set({ currentSession: null, dbSessionId: null }),
+
+        setDbSessionId: (sessionId) => set({ dbSessionId: sessionId }),
 
         createNewSession: () => {
           const user = getUser();
@@ -90,11 +97,35 @@ export const useChatStore = create<ChatState>()(
               isGuest: user?.role === 'guest'
             }
           });
+        },
+
+        loadSessionFromDB: (session, sessionId) => {
+          set({
+            currentSession: session,
+            dbSessionId: sessionId
+          });
+        },
+
+        setCurrentSession: (session) => {
+          set({ currentSession: session });
         }
       };
     },
     {
-      name: 'chat-storage'
+      name: 'chat-storage',
+      // 게스트 사용자만 localStorage에 저장
+      partialize: (state) => {
+        const user = useUserStore.getState().user;
+        // 멤버 유저면 저장하지 않음
+        if (user?.role === 'member') {
+          return {
+            currentMode: state.currentMode,
+            // currentSession은 저장하지 않음
+          };
+        }
+        // 게스트 유저는 전체 저장
+        return state;
+      }
     }
   )
 );

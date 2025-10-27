@@ -11,6 +11,7 @@ interface UserState {
   // 액션
   initGuest: (nickname: string) => void;
   initMember: (nickname: string) => void;
+  initMemberFromDB: (userData: MemberUser) => void;
   addExperience: (amount: number) => void;
   incrementChatCount: () => void;
   incrementShareCount: () => void;
@@ -51,6 +52,24 @@ export const useUserStore = create<UserState>()(
           currentStreak: 0,
           achievements: [],
           createdAt: new Date()
+        };
+
+        set({ user: memberUser });
+      },
+
+      initMemberFromDB: (userData) => {
+        const memberUser: MemberUser = {
+          id: userData.id,
+          nickname: userData.nickname,
+          role: 'member',
+          level: userData.level || 1,
+          experience: userData.experience || 0,
+          totalChats: userData.totalChats || 0,
+          totalShares: userData.totalShares || 0,
+          unlockedModes: userData.unlockedModes || ['default', 'bestie', 'mom'],
+          currentStreak: userData.currentStreak || 0,
+          achievements: userData.achievements || [],
+          createdAt: userData.createdAt || new Date()
         };
 
         set({ user: memberUser });
