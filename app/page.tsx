@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/Button';
 import Hero from '@/components/landing/Hero';
+import About from '@/components/landing/About';
+import YouTubeSection from '@/components/landing/YouTubeSection';
 import { useUserStore } from '@/store/userStore';
 
 export default function LandingPage() {
@@ -23,7 +25,11 @@ export default function LandingPage() {
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-yellow-50">
       <Hero />
 
-      <div className="max-w-md mx-auto px-6 pb-12">
+      <About />
+
+      <YouTubeSection />
+
+      <div className="max-w-md mx-auto px-6 py-12">
         <div className="space-y-4">
           <Button
             onClick={handleStartAsGuest}
