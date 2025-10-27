@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store/userStore';
+import { useChatStore } from '@/store/chatStore';
 import { supabase } from '@/lib/supabase';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -10,52 +11,105 @@ import toast from 'react-hot-toast';
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { initMember, signupFromGuest, user } = useUserStore();
+  const { initMemberFromDB, signupFromGuest, user } = useUserStore();
+  const { clearChat } = useChatStore();
+  const hasProcessedAuth = useRef(false);
 
   useEffect(() => {
-    // OAuth 콜백 후 세션 확인
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        // 이미 로그인된 경우
-        const nickname = session.user.user_metadata.full_name ||
-                        session.user.user_metadata.name ||
-                        session.user.email?.split('@')[0] ||
-                        '사용자';
-
-        if (user?.role === 'guest') {
-          signupFromGuest({ nickname });
-        } else {
-          initMember(nickname);
-        }
-
-        toast.success('로그인 성공! 🎉');
-        router.push('/chat');
-      }
-    });
-
     // 인증 상태 변경 감지
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        const nickname = session.user.user_metadata.full_name ||
-                        session.user.user_metadata.name ||
-                        session.user.email?.split('@')[0] ||
-                        '사용자';
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // SIGNED_IN 이벤트만 처리하고, 이미 처리했다면 무시
+      if (event !== 'SIGNED_IN' || !session || hasProcessedAuth.current) {
+        return;
+      }
 
-        if (user?.role === 'guest') {
-          signupFromGuest({ nickname });
-        } else {
-          initMember(nickname);
+      // 처리 시작 플래그 설정
+      hasProcessedAuth.current = true;
+
+      const nickname = session.user.user_metadata.full_name ||
+                      session.user.user_metadata.name ||
+                      session.user.email?.split('@')[0] ||
+                      '사용자';
+
+      // 현재 사용자 상태 확인 (클로저 이슈 방지를 위해 getState 사용)
+      const currentUser = useUserStore.getState().user;
+
+      if (currentUser?.role === 'guest') {
+        // 회원가입: 게스트 -> 멤버 전환
+        // 세션의 채팅 정보를 DB에 저장
+        const currentSession = useChatStore.getState().currentSession;
+        if (currentSession && currentSession.messages.length > 0) {
+          try {
+            const response = await fetch('/api/chat-sessions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ session: currentSession }),
+            });
+
+            if (!response.ok) {
+              const error = await response.json();
+              console.error('Failed to save chat session:', error);
+              toast.error('채팅 저장 실패 (계속 진행합니다)');
+            } else {
+              await response.json();
+            }
+          } catch (error) {
+            console.error('Error saving chat session:', error);
+            // 저장 실패해도 회원가입은 계속 진행
+          }
+        }
+
+        signupFromGuest({ nickname });
+        toast.success('회원가입 완료! 🎉');
+      } else {
+        // 로그인: 기존 사용자
+        // 세션의 채팅 정보 삭제
+        clearChat();
+
+        // DB에서 사용자 정보 가져오기
+        try {
+          const response = await fetch('/api/users/me', {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+
+            // DB 필드명을 프론트엔드 형식으로 변환
+            const userData = {
+              id: data.user.id,
+              nickname: data.user.nickname,
+              role: 'member' as const,
+              level: data.user.level,
+              experience: data.user.experience,
+              totalChats: data.user.total_chats,
+              totalShares: data.user.total_shares,
+              unlockedModes: ['default', 'bestie', 'mom'] as ('default' | 'bestie' | 'mom' | 'extreme' | 'meme')[],
+              currentStreak: data.user.current_streak,
+              achievements: [],
+              createdAt: new Date(data.user.created_at),
+            };
+
+            initMemberFromDB(userData);
+          }
+        } catch (error) {
+          console.error('Failed to fetch user data:', error);
         }
 
         toast.success('로그인 성공! 🎉');
-        router.push('/chat');
       }
+
+      // /chat 페이지로 이동
+      router.push('/chat');
     });
 
     return () => {
       subscription.unsubscribe();
+      hasProcessedAuth.current = false;
     };
-  }, [router, initMember, signupFromGuest, user]);
+  }, [router, initMemberFromDB, signupFromGuest, clearChat]);
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);

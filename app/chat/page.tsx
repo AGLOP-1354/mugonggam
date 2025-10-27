@@ -18,12 +18,14 @@ import SignupPrompt from '@/components/auth/SignupPrompt';
 import { useChatLimit } from '@/lib/hooks/useChatLimit';
 import { useUIStore } from '@/store/uiStore';
 import { EMPATHY_MODES } from '@/constants/modes';
+import { supabase } from '@/lib/supabase';
+import ChatSessionList from '@/components/chat/ChatSessionList';
 
 
 const ChatPage = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const { currentSession, isLoading, currentMode, addMessage, setLoading } = useChatStore();
+  const { currentSession, isLoading, currentMode, addMessage, setLoading, clearChat } = useChatStore();
   const { user } = useUserStore();
   const { openModeSelector, openShareModal } = useUIStore();
   const {
@@ -43,10 +45,72 @@ const ChatPage = () => {
   }, [currentSession?.messages]);
 
   useEffect(() => {
+    // Supabase 세션 확인 및 동기화
+    const checkAndSyncSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session && (!user || user.role === 'guest')) {
+          // Supabase 세션이 있지만 userStore가 없거나 게스트인 경우 DB에서 가져오기
+          try {
+            const response = await fetch('/api/users/me', {
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+
+              // DB 필드명을 프론트엔드 형식으로 변환
+              const userData = {
+                id: data.user.id,
+                nickname: data.user.nickname,
+                role: 'member' as const,
+                level: data.user.level,
+                experience: data.user.experience,
+                totalChats: data.user.total_chats,
+                totalShares: data.user.total_shares,
+                unlockedModes: ['default', 'bestie', 'mom'] as ('default' | 'bestie' | 'mom' | 'extreme' | 'meme')[],
+                currentStreak: data.user.current_streak,
+                achievements: [],
+                createdAt: new Date(data.user.created_at),
+              };
+
+              const { initMemberFromDB } = useUserStore.getState();
+              initMemberFromDB(userData);
+            }
+          } catch (error) {
+            console.error('Failed to fetch user data:', error);
+          }
+        } else if (!session && !user) {
+          // Supabase 세션도 없고 userStore도 없으면 랜딩페이지로
+          router.push('/');
+        }
+      } catch (error) {
+        console.error('Session sync error:', error);
+      }
+    };
+
+    checkAndSyncSession();
+
+    // 사용자가 없으면 랜딩페이지로 리다이렉트
     if (!user) {
-      router.push('/');
+      const timer = setTimeout(() => {
+        router.push('/');
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [user, router]);
+
+  // 새 채팅 페이지 - 로그인 유저는 빈 채팅으로 시작
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.role === 'member') {
+      clearChat(); // 기존 채팅 클리어
+    }
+  }, [user, clearChat]);
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || isLoading || !canChat) return;
@@ -62,17 +126,53 @@ const ChatPage = () => {
     setLoading(true);
 
     try {
+      // 로그인 유저인 경우 인증 토큰 가져오기
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (user?.role === 'member') {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           message: content,
           mode: currentMode,
-          history: currentSession?.messages.slice(-5) || []
+          history: currentSession?.messages.slice(-5) || [],
+          sessionId: null // 새 채팅이므로 null
         })
       });
 
       const data = await response.json();
+
+      // DB 저장 상태 확인 및 로깅
+      if (user?.role === 'member') {
+        if (data.dbSaved) {
+          if (data.sessionId) {
+            addMessage({
+              role: 'assistant',
+              content: data.response,
+              mode: currentMode
+            });
+
+            setLoading(false);
+
+            // LNB 새로고침 이벤트 발생
+            window.dispatchEvent(new Event('chat-session-created'));
+
+            // 약간의 딜레이 후 리다이렉트 (사용자가 응답을 볼 수 있도록)
+            setTimeout(() => {
+              router.push(`/chat/${data.sessionId}`);
+            }, 500);
+            return;
+          }
+        } else {
+          console.error('[Chat] Failed to save to DB:', data.dbError);
+        }
+      }
 
       addMessage({
         role: 'assistant',
@@ -98,7 +198,12 @@ const ChatPage = () => {
 
   return (
     <>
-      <div className="flex flex-col h-screen bg-gradient-to-b from-orange-50 to-yellow-50">
+      <div className="flex h-screen">
+        {/* LNB - 로그인 유저만 표시 */}
+        {user?.role === 'member' && <ChatSessionList />}
+
+        {/* 메인 채팅 영역 */}
+        <div className="flex-1 flex flex-col bg-gradient-to-b from-orange-50 to-yellow-50">
         <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
             <h1 className="font-bold text-lg text-gray-800">무공감</h1>
@@ -142,7 +247,7 @@ const ChatPage = () => {
         <SignupPrompt />
 
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-          {!currentSession?.messages.length && (
+          {!currentSession?.messages.length ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -161,13 +266,12 @@ const ChatPage = () => {
                 </p>
               )}
             </motion.div>
-          )}
+          ) : null}
 
           {currentSession?.messages.map((message) => (
             <ChatMessage
               key={message.id}
               message={message}
-              // isLatest={index === currentSession.messages.length - 1}
             />
           ))}
 
@@ -187,9 +291,10 @@ const ChatPage = () => {
         />
       </div>
 
-      <LimitReachedModal />
-      <ModeSelector />
-      <ShareModal />
+        <LimitReachedModal />
+        <ModeSelector />
+        <ShareModal />
+      </div>
     </>
   );
 };
