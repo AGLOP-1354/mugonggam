@@ -15,6 +15,7 @@ import LimitReachedModal from '@/components/chat/LimitReachedModal';
 import ModeSelector from '@/components/chat/ModeSelector';
 import ShareModal from '@/components/share/ShareModal';
 import SignupPrompt from '@/components/auth/SignupPrompt';
+import ChallengeCard from '@/components/challenge/ChallengeCard';
 import { useChatLimit } from '@/lib/hooks/useChatLimit';
 import { useUIStore } from '@/store/uiStore';
 import { EMPATHY_MODES } from '@/constants/modes';
@@ -254,6 +255,8 @@ const ChatPage = () => {
         <SignupPrompt />
 
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+          {/* 데일리 챌린지 카드 */}
+          <ChallengeCard />
           {!currentSession?.messages.length ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
