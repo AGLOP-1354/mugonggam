@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Share2, Settings2 } from 'lucide-react';
+import { Share2, Settings2, Trophy } from 'lucide-react';
 
 import { useChatStore } from '@/store/chatStore';
 import { useUserStore } from '@/store/userStore';
@@ -219,6 +219,13 @@ const ChatPage = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              onClick={() => router.push('/ranking')}
+              title="오늘의 공감 랭킹"
+            >
+              <Trophy className="w-5 h-5 text-yellow-600" />
+            </button>
             <button
               className="p-2 rounded-full hover:bg-gray-100 transition-colors"
               onClick={openModeSelector}

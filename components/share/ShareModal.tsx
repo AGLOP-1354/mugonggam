@@ -9,17 +9,20 @@ import { toPng } from 'html-to-image';
 import { useUIStore } from '@/store/uiStore';
 import { useChatStore } from '@/store/chatStore';
 import { useUserStore } from '@/store/userStore';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
+import { ShareTemplate, SHARE_TEMPLATES } from '@/constants/shareTemplates';
 
 import ShareImageGenerator from './ShareImageGenerator';
 
 const ShareModal = () => {
   const { isShareModalOpen, closeShareModal } = useUIStore();
-  const { currentSession } = useChatStore();
+  const { currentSession, dbSessionId } = useChatStore();
   const { user } = useUserStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<ShareTemplate>('kakao');
   const containerRef = useRef<HTMLDivElement>(null);
 
   if (!isShareModalOpen) return null;
@@ -44,7 +47,7 @@ const ShareModal = () => {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!imageUrl) return;
 
     const link = document.createElement('a');
@@ -52,11 +55,49 @@ const ShareModal = () => {
     link.href = imageUrl;
     link.click();
 
-    if (user?.role === 'member') {
-      useUserStore.getState().incrementShareCount();
-    }
+    // Share API 호출
+    await recordShare('download');
 
     toast.success('이미지가 다운로드되었습니다!');
+  };
+
+  const recordShare = async (platform: string) => {
+    if (!dbSessionId) {
+      console.warn('No dbSessionId available for share recording');
+      return;
+    }
+
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+      if (user?.role === 'member') {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      }
+
+      const response = await fetch('/api/share', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          session_id: dbSessionId,
+          platform,
+          image_url: imageUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to record share:', await response.text());
+      } else {
+        // 로컬 상태 업데이트
+        if (user?.role === 'member') {
+          useUserStore.getState().incrementShareCount();
+        }
+      }
+    } catch (error) {
+      console.error('Error recording share:', error);
+    }
   };
 
   const handleShare = async () => {
@@ -72,10 +113,8 @@ const ShareModal = () => {
           files: [file],
         });
 
-        // 회원이면 경험치 증가
-        if (user?.role === 'member') {
-          useUserStore.getState().incrementShareCount();
-        }
+        // Share API 호출
+        await recordShare('native_share');
 
         toast.success('공유되었습니다!');
       } catch (error) {
@@ -123,11 +162,41 @@ const ShareModal = () => {
             </button>
           </div>
 
+          {/* 템플릿 선택 */}
+          {!imageUrl && (
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 mb-3 font-medium">템플릿 선택</p>
+              <div className="grid grid-cols-4 gap-3">
+                {(Object.keys(SHARE_TEMPLATES) as ShareTemplate[]).map((templateKey) => {
+                  const template = SHARE_TEMPLATES[templateKey];
+                  return (
+                    <button
+                      key={templateKey}
+                      onClick={() => setSelectedTemplate(templateKey)}
+                      className={`
+                        p-4 rounded-xl border-2 transition-all
+                        ${selectedTemplate === templateKey
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                        }
+                      `}
+                    >
+                      <div className="text-3xl mb-2">{template.icon}</div>
+                      <p className="text-sm font-medium text-gray-800">{template.name}</p>
+                      <p className="text-xs text-gray-500 mt-1">{template.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="hidden">
             <div ref={containerRef}>
               <ShareImageGenerator
                 messages={messagesToShare}
                 nickname={user?.nickname || '게스트'}
+                template={selectedTemplate}
               />
             </div>
           </div>
