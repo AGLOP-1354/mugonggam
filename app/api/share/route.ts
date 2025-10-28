@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // 새로운 공유 레코드 생성
-      const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://mugonggam.app'}/chat/${session_id}`;
+      const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://mugonggam.vercel.app/'}/chat/${session_id}`;
 
       const { data: newShare, error: insertError } = await supabase
         .from('shares')

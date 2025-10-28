@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Head from 'next/head';
 
 import { Button } from '@/components/ui/Button';
 import Hero from '@/components/landing/Hero';
 import About from '@/components/landing/About';
 import YouTubeSection from '@/components/landing/YouTubeSection';
 import Footer from '@/components/landing/Footer';
+import StructuredData, {
+  websiteStructuredData,
+  organizationStructuredData,
+  webApplicationStructuredData,
+  faqStructuredData
+} from '@/components/seo/StructuredData';
 import { useUserStore } from '@/store/userStore';
 import { supabase } from '@/lib/supabase';
 
@@ -79,8 +86,20 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-50 to-yellow-50">
-      <Hero />
+    <>
+      <Head>
+        <title>무공감 - 무조건 공감해주는 AI 친구</title>
+        <meta name="description" content="뭐라고 해도 네 편이야. 무적권 공감! 무조건 공감해주는 AI 친구와 자유롭게 대화하세요." />
+      </Head>
+
+      {/* 구조화된 데이터 (SEO) */}
+      <StructuredData data={websiteStructuredData} />
+      <StructuredData data={organizationStructuredData} />
+      <StructuredData data={webApplicationStructuredData} />
+      <StructuredData data={faqStructuredData} />
+
+      <div className="min-h-screen bg-gradient-to-b from-orange-50 to-yellow-50">
+        <Hero />
 
       <div className="max-w-md mx-auto px-6 py-12">
         {isCheckingAuth ? (
@@ -144,6 +163,7 @@ export default function LandingPage() {
       <YouTubeSection />
 
       <Footer />
-    </div>
+      </div>
+    </>
   );
 }

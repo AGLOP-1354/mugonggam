@@ -1,0 +1,27 @@
+{
+  "name": "무공감 - 무조건 공감해주는 AI",
+  "short_name": "무공감",
+  "description": "뭐라고 해도 네 편이야. 무적권 공감!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8F0",
+  "theme_color": "#FF8C42",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "entertainment", "social"],
+  "lang": "ko-KR",
+  "dir": "ltr"
+}

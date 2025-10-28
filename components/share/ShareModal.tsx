@@ -126,7 +126,7 @@ const ShareModal = () => {
   };
 
   const handleCopyUrl = () => {
-    navigator.clipboard.writeText('https://mugonggam.app');
+    navigator.clipboard.writeText('https://mugonggam.vercel.app/');
     setCopied(true);
     toast.success('링크가 복사되었습니다!');
     setTimeout(() => setCopied(false), 2000);

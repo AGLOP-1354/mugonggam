@@ -154,7 +154,7 @@ export type UserType = User | GuestUser | null;
 export const APP_CONFIG = {
   name: '무공감',
   description: '무조건 공감해주는 AI 친구',
-  url: 'https://mugonggam.app',
+  url: 'https://mugonggam.vercel.app/',
   
   // 비회원 제한
   guest: {
