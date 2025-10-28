@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 import { EMPATHY_MODES } from '@/constants/modes';
+import { isSafeMessage } from '@/constants/filters';
 import { EmpathyMode, Message } from '@/types/chat';
 
 const SOLAR_API_URL = 'https://api.upstage.ai/v1/solar/chat/completions';
@@ -9,6 +10,17 @@ const SOLAR_API_URL = 'https://api.upstage.ai/v1/solar/chat/completions';
 export async function POST(request: NextRequest) {
   try {
     const { message, mode, history, sessionId } = await request.json();
+
+    // 콘텐츠 안전성 검사
+    const safetyCheck = isSafeMessage(message);
+    if (!safetyCheck.safe) {
+      console.log(`[Chat API] Message filtered: ${safetyCheck.reason}`);
+      return NextResponse.json({
+        response: safetyCheck.response,
+        filtered: true,
+        reason: safetyCheck.reason,
+      });
+    }
 
     const modeConfig = EMPATHY_MODES[mode as EmpathyMode];
 
