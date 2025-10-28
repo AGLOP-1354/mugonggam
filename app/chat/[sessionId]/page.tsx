@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter, useParams } from 'next/navigation';
-import { Share2, Settings2 } from 'lucide-react';
+import { Share2, Settings2, Trophy } from 'lucide-react';
 
 import { useChatStore } from '@/store/chatStore';
 import { useUserStore } from '@/store/userStore';
@@ -15,6 +15,7 @@ import LimitReachedModal from '@/components/chat/LimitReachedModal';
 import ModeSelector from '@/components/chat/ModeSelector';
 import ShareModal from '@/components/share/ShareModal';
 import SignupPrompt from '@/components/auth/SignupPrompt';
+import ChallengeCard from '@/components/challenge/ChallengeCard';
 import { useChatLimit } from '@/lib/hooks/useChatLimit';
 import { useUIStore } from '@/store/uiStore';
 import { EMPATHY_MODES } from '@/constants/modes';
@@ -251,6 +252,13 @@ const ChatSessionPage = () => {
           <div className="flex items-center gap-2">
             <button
               className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              onClick={() => router.push('/ranking')}
+              title="오늘의 공감 랭킹"
+            >
+              <Trophy className="w-5 h-5 text-yellow-600" />
+            </button>
+            <button
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
               onClick={openModeSelector}
               title="공감 모드 변경"
             >
@@ -277,6 +285,9 @@ const ChatSessionPage = () => {
         <SignupPrompt />
 
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+          {/* 데일리 챌린지 카드 */}
+          {!isLoadingHistory && <ChallengeCard />}
+
           {isLoadingHistory ? (
             <div className="text-center py-12">
               <div className="text-2xl mb-4">🤗</div>
