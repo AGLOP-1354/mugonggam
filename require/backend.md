@@ -98,6 +98,41 @@ rewards
 ├── reward_data (JSONB)
 ├── created_at (TIMESTAMP)
 └── updated_at (TIMESTAMP)
+
+-- 챌린지 테이블
+challenges
+├── id (UUID, PK)
+├── type (TEXT) -- 'daily' | 'weekly' | 'special'
+├── title (TEXT) -- 챌린지 제목
+├── description (TEXT) -- 챌린지 설명
+├── day_of_week (INT) -- 0-6 (일-토), null이면 매일
+├── reward_experience (INT) -- 보상 경험치
+├── reward_badge (TEXT) -- 보상 뱃지 이름
+├── is_active (BOOLEAN) -- 활성화 여부
+├── icon (TEXT) -- 이모지 아이콘
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
+
+-- 사용자 챌린지 완료 기록 테이블
+user_challenges
+├── id (UUID, PK)
+├── user_id (UUID, FK -> users.id)
+├── challenge_id (UUID, FK -> challenges.id)
+├── session_id (UUID, FK -> chat_sessions.id)
+├── completed_at (TIMESTAMP)
+├── completion_date (DATE) -- 완료 날짜 (중복 방지용)
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
+
+-- 챌린지 연속 완료 기록 테이블
+challenge_streaks
+├── id (UUID, PK)
+├── user_id (UUID, FK -> users.id, UNIQUE)
+├── current_streak (INT) -- 현재 연속 일수
+├── max_streak (INT) -- 최대 연속 일수
+├── last_completed_date (DATE) -- 마지막 완료 날짜
+├── created_at (TIMESTAMP)
+└── updated_at (TIMESTAMP)
 ```
 
 ### 2.2 상세 스키마 정의
@@ -212,6 +247,66 @@ CREATE TABLE rewards (
 CREATE INDEX idx_rewards_user_id ON rewards(user_id);
 ```
 
+#### 2.2.7 challenges 테이블
+```sql
+CREATE TABLE challenges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type TEXT NOT NULL DEFAULT 'daily' CHECK (type IN ('daily', 'weekly', 'special')),
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  day_of_week INT CHECK (day_of_week >= 0 AND day_of_week <= 6),
+  reward_experience INT DEFAULT 10,
+  reward_badge TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  icon TEXT DEFAULT '🎯',
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_challenges_type ON challenges(type);
+CREATE INDEX idx_challenges_day_of_week ON challenges(day_of_week);
+CREATE INDEX idx_challenges_is_active ON challenges(is_active);
+```
+
+#### 2.2.8 user_challenges 테이블
+```sql
+CREATE TABLE user_challenges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  challenge_id UUID REFERENCES challenges(id) ON DELETE CASCADE,
+  session_id UUID REFERENCES chat_sessions(id) ON DELETE SET NULL,
+  completed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  completion_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+  -- 같은 날 같은 챌린지 중복 완료 방지
+  UNIQUE(user_id, challenge_id, completion_date)
+);
+
+CREATE INDEX idx_user_challenges_user_id ON user_challenges(user_id);
+CREATE INDEX idx_user_challenges_challenge_id ON user_challenges(challenge_id);
+CREATE INDEX idx_user_challenges_completion_date ON user_challenges(completion_date DESC);
+CREATE INDEX idx_user_challenges_user_date ON user_challenges(user_id, completion_date DESC);
+```
+
+#### 2.2.9 challenge_streaks 테이블
+```sql
+CREATE TABLE challenge_streaks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  current_streak INT DEFAULT 0,
+  max_streak INT DEFAULT 0,
+  last_completed_date DATE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_challenge_streaks_user_id ON challenge_streaks(user_id);
+CREATE INDEX idx_challenge_streaks_current_streak ON challenge_streaks(current_streak DESC);
+CREATE INDEX idx_challenge_streaks_max_streak ON challenge_streaks(max_streak DESC);
+```
+
 ---
 
 ## 3. Row Level Security (RLS) 정책
@@ -324,6 +419,63 @@ CREATE POLICY "Service role manages rankings"
   USING (auth.role() = 'service_role');
 ```
 
+### 3.6 challenges 테이블 RLS
+```sql
+ALTER TABLE challenges ENABLE ROW LEVEL SECURITY;
+
+-- 모든 사용자가 조회 가능
+CREATE POLICY "Anyone can view challenges"
+  ON challenges
+  FOR SELECT
+  USING (is_active = true);
+
+-- 서비스 역할만 생성/수정 가능
+CREATE POLICY "Service role manages challenges"
+  ON challenges
+  FOR ALL
+  USING (auth.role() = 'service_role');
+```
+
+### 3.7 user_challenges 테이블 RLS
+```sql
+ALTER TABLE user_challenges ENABLE ROW LEVEL SECURITY;
+
+-- 자신의 챌린지 완료 기록만 조회 가능
+CREATE POLICY "Users can view own challenge completions"
+  ON user_challenges
+  FOR SELECT
+  USING (
+    auth.uid()::text = user_id::text OR
+    auth.role() = 'service_role'
+  );
+
+-- 서비스 역할만 생성 가능 (API를 통해서만)
+CREATE POLICY "Service role can insert challenge completions"
+  ON user_challenges
+  FOR INSERT
+  WITH CHECK (auth.role() = 'service_role');
+```
+
+### 3.8 challenge_streaks 테이블 RLS
+```sql
+ALTER TABLE challenge_streaks ENABLE ROW LEVEL SECURITY;
+
+-- 자신의 연속 기록만 조회 가능
+CREATE POLICY "Users can view own streak"
+  ON challenge_streaks
+  FOR SELECT
+  USING (
+    auth.uid()::text = user_id::text OR
+    auth.role() = 'service_role'
+  );
+
+-- 서비스 역할만 생성/수정 가능
+CREATE POLICY "Service role manages streaks"
+  ON challenge_streaks
+  FOR ALL
+  USING (auth.role() = 'service_role');
+```
+
 ---
 
 ## 4. 트리거 및 함수
@@ -362,6 +514,21 @@ CREATE TRIGGER update_shares_updated_at
 
 CREATE TRIGGER update_rankings_updated_at
   BEFORE UPDATE ON rankings
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_challenges_updated_at
+  BEFORE UPDATE ON challenges
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_challenges_updated_at
+  BEFORE UPDATE ON user_challenges
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_challenge_streaks_updated_at
+  BEFORE UPDATE ON challenge_streaks
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 ```
@@ -419,6 +586,62 @@ CREATE TRIGGER before_user_experience_update
   FOR EACH ROW
   WHEN (NEW.experience > OLD.experience)
   EXECUTE FUNCTION check_level_up();
+```
+
+### 4.4 챌린지 연속 완료 업데이트 트리거
+```sql
+CREATE OR REPLACE FUNCTION update_challenge_streak()
+RETURNS TRIGGER AS $$
+DECLARE
+  streak_record RECORD;
+  days_diff INT;
+BEGIN
+  -- 사용자의 현재 연속 기록 조회
+  SELECT * INTO streak_record
+  FROM challenge_streaks
+  WHERE user_id = NEW.user_id;
+
+  IF streak_record IS NULL THEN
+    -- 연속 기록이 없으면 새로 생성
+    INSERT INTO challenge_streaks (user_id, current_streak, max_streak, last_completed_date)
+    VALUES (NEW.user_id, 1, 1, NEW.completion_date);
+  ELSE
+    -- 마지막 완료 날짜와의 차이 계산
+    days_diff := NEW.completion_date - streak_record.last_completed_date;
+
+    IF days_diff = 1 THEN
+      -- 연속 완료 (하루 차이)
+      UPDATE challenge_streaks
+      SET
+        current_streak = current_streak + 1,
+        max_streak = GREATEST(max_streak, current_streak + 1),
+        last_completed_date = NEW.completion_date,
+        updated_at = NOW()
+      WHERE user_id = NEW.user_id;
+    ELSIF days_diff = 0 THEN
+      -- 같은 날 추가 완료 (연속 기록 유지)
+      UPDATE challenge_streaks
+      SET last_completed_date = NEW.completion_date
+      WHERE user_id = NEW.user_id;
+    ELSE
+      -- 연속 끊김 (2일 이상 차이)
+      UPDATE challenge_streaks
+      SET
+        current_streak = 1,
+        last_completed_date = NEW.completion_date,
+        updated_at = NOW()
+      WHERE user_id = NEW.user_id;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER after_challenge_completion
+  AFTER INSERT ON user_challenges
+  FOR EACH ROW
+  EXECUTE FUNCTION update_challenge_streak();
 ```
 
 ---
